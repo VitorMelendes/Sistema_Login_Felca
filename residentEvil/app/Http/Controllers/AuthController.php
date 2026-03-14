@@ -3,18 +3,18 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
 
 class AuthController extends Controller
 {
-    // cadastrar usuário
+    // Cadastro (POST)
     public function register(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|unique:users',
+            'name' => 'required|string',
+            'email' => 'required|email|unique:users',
             'password' => 'required|min:6'
         ]);
 
@@ -24,17 +24,40 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        //gera o token do sexo do user(token atual do usuario)
         $token = $user->createToken('token')->plainTextToken;
 
-        return response()->json([
-            'user' => $user,
-            'token' => $token
-        ], 201);
+        return response()->json(['user' => $user, 'token' => $token], 201);
     }
 
-    public function login() {}
+    // Login (POST)
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
+        ]);
 
-    public function logout() {}
+        if (!Auth::attempt($request->only('email', 'password'))) {
+            return response()->json(['message' => 'Credenciais inválidas'], 401);
+        }
+
+        $user = User::where('email', $request->email)->firstOrFail();
+        $token = $user->createToken('token')->plainTextToken;
+
+        return response()->json(['user' => $user, 'token' => $token], 200);
+    }
+
+    // Logout (POST) - Deleta o usuário do banco
+    public function logout(Request $request)
+    {
+        $user = $request->user();
+
+        // Remove os tokens e depois deleta o registro do banco
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json([
+            'message' => 'Usuário removido do banco de dados com sucesso.'
+        ], 200);
+    }
 }
-?>
